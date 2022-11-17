@@ -44,9 +44,8 @@ void loop()
   int readingA0 = 0;
   int readingA1 = 0;
   for (int i = 0; i < averageCounterMax; i++) {
-
-    hA += dhtA.readHumidity();
-    tA += dhtA.readTemperature();
+    hA        += dhtA.readHumidity();
+    tA        += dhtA.readTemperature();
     readingA0 += analogRead(sensorPin0);
     readingA1 += analogRead(sensorPin1);
     delay(delay_);
@@ -58,7 +57,8 @@ void loop()
   readingA1 = readingA1/averageCounterMax;
 
   str = String("{ ");
-  str += String(  "\"TempOutside\" : ") + String(tA) + String(", \"HumidityOutside\" : ") + String(hA);
+  str += String(  "\"TempOutside\" : ") + String(tA);
+  str += String(", \"HumidityOutside\" : ") + String(hA);
   str += String(", \"LightOutside\" : ") + String(readingA0);
   str += String(", \"MoistureOutside\" : ") + String(readingA1);
   str += String(" }");
