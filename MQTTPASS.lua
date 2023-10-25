@@ -3,6 +3,7 @@ UART_ON = true
 MONITOR_ON = false
 MONITOR_DHT_ON = false
 MONITOR_FLOW_ON = false
+MONITOR_MESSAGE = false
 
 D1=1
 D2=2
@@ -23,8 +24,6 @@ else
     gpio.mode(D2, gpio.OUTPUT)
     gpio.write(D2, gpio.LOW)
 end
-
-
 
 -- MQTTPASS
 local myID = wifi.sta.getmac()
@@ -110,64 +109,65 @@ c:on("offline", function(conn)
     publish("restarting")
 end)
 
-c:on("message", function(conn,topic,data)
-    if data~=nil then
-        print(data)
-        local p = "TEST"
-        data = trim2(data)
-        local t = (data:sub(0, #p) == p) and data:sub(#p+1) or nil
-        if t~=nil then
-            c:publish(mqtt_client_cfg.topic_test, topic .. ":'" .. t .. "'", 0, 0 )
-            uart.write( 0, t ) -- this goes back to the arduino
-        end
-        p = "SWITCH"
-        data = trim2(data)
-        local t = (data:sub(0, #p) == p) and data:sub(#p+1) or nil
-        if t~=nil then
-            if t == "On" then
-                c:publish(mqtt_client_cfg.topic_state, "{ \"Lights_4\":\"On\" }", 0, 0 )
-                gpio.write(D1, ON_)
-                D1OnOff=1
+if MONITOR_MESSAGE then
+    c:on("message", function(conn,topic,data)
+        if data~=nil then
+            print(data)
+            local p = "TEST"
+            data = trim2(data)
+            local t = (data:sub(0, #p) == p) and data:sub(#p+1) or nil
+            if t~=nil then
+                c:publish(mqtt_client_cfg.topic_test, topic .. ":'" .. t .. "'", 0, 0 )
+                uart.write( 0, t ) -- this goes back to the arduino
             end
-            if t == "Off" then
-                c:publish(mqtt_client_cfg.topic_state, "{ \"Lights_4\":\"Off\" }", 0, 0 )
-                gpio.write(D1, OFF_)
-                D1OnOff=0
+            p = "SWITCH"
+            data = trim2(data)
+            local t = (data:sub(0, #p) == p) and data:sub(#p+1) or nil
+            if t~=nil then
+                if t == "On" then
+                    c:publish(mqtt_client_cfg.topic_state, "{ \"Lights_4\":\"On\" }", 0, 0 )
+                    gpio.write(D1, ON_)
+                    D1OnOff=1
+                end
+                if t == "Off" then
+                    c:publish(mqtt_client_cfg.topic_state, "{ \"Lights_4\":\"Off\" }", 0, 0 )
+                    gpio.write(D1, OFF_)
+                    D1OnOff=0
+                end
             end
-        end
-        p = "BUTTON"
-        data = trim2(data)
-        local t = (data:sub(0, #p) == p) and data:sub(#p+1) or nil
-        if t~=nil then
-            if t == "Garage" then
-                c:publish(mqtt_client_cfg.topic_state, "{ \"Garage\":\"On\" }", 0, 0 )
-                gpio.write(D2, gpio.HIGH)
-                tmr.create():alarm(1500, tmr.ALARM_SINGLE, function()
-                    c:publish(mqtt_client_cfg.topic_state, "{ \"Garage\":\"Off\" }", 0, 0 )
-                    gpio.write(D2, gpio.LOW)
-                end)
-            end
-            if t == "Alarm" then
-                if D2OnOff == 0 then
-                    c:publish(mqtt_client_cfg.topic_state, "{ \"Alarm\":\"On\" }", 0, 0 )
-                    gpio.write(D1, gpio.HIGH)
-                    D2OnOff = 1
+            p = "BUTTON"
+            data = trim2(data)
+            local t = (data:sub(0, #p) == p) and data:sub(#p+1) or nil
+            if t~=nil then
+                if t == "Garage" then
+                    c:publish(mqtt_client_cfg.topic_state, "{ \"Garage\":\"On\" }", 0, 0 )
+                    gpio.write(D2, gpio.HIGH)
                     tmr.create():alarm(1500, tmr.ALARM_SINGLE, function()
-                        gpio.write(D1, gpio.LOW)
+                        c:publish(mqtt_client_cfg.topic_state, "{ \"Garage\":\"Off\" }", 0, 0 )
+                        gpio.write(D2, gpio.LOW)
                     end)
-                else
-                    c:publish(mqtt_client_cfg.topic_state, "{ \"Alarm\":\"Off\" }", 0, 0 )
-                    gpio.write(D1, gpio.HIGH)
-                    D2OnOff = 0
-                    tmr.create():alarm(1500, tmr.ALARM_SINGLE, function()
-                        gpio.write(D1, gpio.LOW)
-                    end)
+                end
+                if t == "Alarm" then
+                    if D2OnOff == 0 then
+                        c:publish(mqtt_client_cfg.topic_state, "{ \"Alarm\":\"On\" }", 0, 0 )
+                        gpio.write(D1, gpio.HIGH)
+                        D2OnOff = 1
+                        tmr.create():alarm(1500, tmr.ALARM_SINGLE, function()
+                            gpio.write(D1, gpio.LOW)
+                        end)
+                    else
+                        c:publish(mqtt_client_cfg.topic_state, "{ \"Alarm\":\"Off\" }", 0, 0 )
+                        gpio.write(D1, gpio.HIGH)
+                        D2OnOff = 0
+                        tmr.create():alarm(1500, tmr.ALARM_SINGLE, function()
+                            gpio.write(D1, gpio.LOW)
+                        end)
+                    end
                 end
             end
         end
-    end
-end)
-
+    end)
+end
 -- on publish overflow receive event
 c:on("overflow", function(client, topic, data)
     print(topic .. " partial overflowed message: " .. data )
